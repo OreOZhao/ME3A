@@ -1,12 +1,12 @@
 import torch as t
-
+import pickle
 from config.KBConfig import *
 from preprocess.BertDataLoader import BertDataLoader
 from preprocess.KBStore import KBStore
 from tools.Announce import Announce
 from train.PairwiseTrainer import PairwiseTrainer
+from train.PairwisePromptTrainer import PairwisePromptTrainer
 from train.MMPairwisePromptTrainer import MMPairwisePromptTrainer
-import pickle
 
 if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpus
@@ -29,19 +29,19 @@ if __name__ == '__main__':
 
     nei_tids1 = BertDataLoader.load_saved_type_seq(dataset1, 'neighboronly')
     nei_tids2 = BertDataLoader.load_saved_type_seq(dataset2, 'neighboronly')
-    eid2nei_tids1 = {eid: tids for eid, tids in nei_tids1}
-    eid2nei_tids2 = {eid: tids for eid, tids in nei_tids2}
-
     eid2img_feat1 = pickle.load(open(dataset1.img_feat_out, 'rb')) if args.visual else None
     eid2img_feat2 = pickle.load(open(dataset2.img_feat_out, 'rb')) if args.visual else None
 
-    if args.visual:
-        trainer = MMPairwisePromptTrainer()
+    eid2nei_tids1 = {eid: tids for eid, tids in nei_tids1}
+    eid2nei_tids2 = {eid: tids for eid, tids in nei_tids2}
+
+    trainer = MMPairwisePromptTrainer()
+    if args.woattr:
+        args.neighbor = False
+        trainer.data_prepare(eid2nei_tids1, eid2nei_tids2, fs1, fs2)
+    else:
         trainer.data_prepare(eid2attr_tids1, eid2attr_tids2, fs1, fs2,
                              eid2nei_tids1, eid2nei_tids2,
                              eid2img_feat1, eid2img_feat2)
-    else:
-        trainer = PairwiseTrainer()
-        trainer.data_prepare(eid2attr_tids1, eid2attr_tids2, fs1, fs2,
-                             eid2nei_tids1, eid2nei_tids2)
-        trainer.train(device=device)
+
+    trainer.train(device=device)

@@ -47,12 +47,18 @@ tea_group.add_argument('--lambda_prompt_ce', type=float, default=1)
 tea_group.add_argument('--lambda_prompt_margin', type=float, default=1)
 tea_group.add_argument('--template_id', type=int, default=4)
 tea_group.add_argument('--nsp', action='store_true', default=False)
-tea_group.add_argument('--reranking_cands', type=int, default=128)
-tea_group.add_argument('--reranking_thres', type=float, default=0.9)
+tea_group.add_argument('--reranking_cands', type=int, default=256)
+tea_group.add_argument('--reranking_thres', type=float, default=0.8)
+# =====================================================================
+# ================ ME3A ==============================================
+train_group.add_argument('--visual', action='store_true')
+train_group.add_argument('--prefix', type=int, default=2)
+train_group.add_argument('--woattr', action='store_true')
 # =====================================================================
 
+
 args = parser.parse_args()
-seq_max_len = 128
+seq_max_len = 200
 bert_output_dim = 300
 PARALLEL = True
 DEBUG = False
@@ -100,6 +106,8 @@ class Dataset:
         self.neighboronly_tokens_out = self.outputs_python('neighboronly_tokens', no)
         self.neighboronly_tids_out = self.outputs_python('neighboronly_tids', no)
         self.neighboronly_token_freqs_out = self.outputs_python('neighboronly_token_freqs', no)
+        # -------------------------------------------------------------
+        self.img_feat_out = self.outputs_pickle('img_feat', no)
         # ----------------------------------------------------------------
         self.facts_out = self.outputs_python('facts', no)
         self.case_study_out = self.outputs_python('case_study', no)
@@ -126,6 +134,12 @@ class Dataset:
     def outputs_python(name, no):
         file_name = '_'.join((name, 'python', str(no))) + '.txt'
         return os.path.join(result_home, file_name)
+
+    @staticmethod
+    def outputs_pickle(name, no):
+        file_name = '_'.join((name, 'pickle', str(no))) + '.pickle'
+        return os.path.join(result_home, file_name)
+
 
 
 dataset1 = Dataset(1)
@@ -205,7 +219,9 @@ template = templates_list[args.template_id]
 
 num_prompt_labels = len(prompt_labels)
 
-special_tokens_dict = {'additional_special_tokens': ['[P0]', '[P1]', '[P2]', '[P3]', '[P4]', '[P5]']}
+# special_tokens_dict = {'additional_special_tokens': ['[P0]', '[P1]', '[P2]', '[P3]', '[P4]', '[P5]']}
+special_tokens_dict = {'additional_special_tokens': ['[VP]', '[P0]', '[P1]', '[P2]', '[P3]',
+                                                     '[P4]', '[P5]', '[PS]', '[PE]']}
 
 tokenizer = BertTokenizer.from_pretrained(args.pretrain_bert_path)
 num_added_toks = tokenizer.add_special_tokens(special_tokens_dict)
@@ -213,5 +229,9 @@ len_tokenizer = len(tokenizer)
 print("special_tokens_dict", special_tokens_dict)
 print("num_added_toks", num_added_toks)
 print("len_tokenizer", len_tokenizer)
+
+if not args.visual:
+    args.prefix = 0
+visual_hidden_size = 4096 if args.dataset.startswith('fb') else 2048
 
 # =================================================
